@@ -17,7 +17,21 @@ export function newGame() {
     lastSeen: Date.now(),
     lastStreakDay: null,                  // YYYY-MM-DD of last claimed daily reward
     boostUntil: 0,                        // timestamp; while now < this, income is boosted
+    bestTier: -1,                         // highest tier ever reached (for journey/unlocks)
+    served: 0,                            // lifetime "serve" taps, for a sense of activity
   };
+}
+
+// Highest tier currently sitting on the board (-1 if board is empty).
+export function maxTierInSlots(state) {
+  return state.slots.reduce((m, t) => (t === null ? m : Math.max(m, t)), -1);
+}
+
+// Record the best tier ever reached, for the journey/progress UI. Returns NEW state.
+export function bumpBest(state) {
+  const prev = state.bestTier ?? -1;
+  const best = Math.max(prev, maxTierInSlots(state));
+  return best === prev ? state : { ...state, bestTier: best };
 }
 
 // Total coins/second across all placed stalls (before any boost).
@@ -51,7 +65,7 @@ export function buyStall(state) {
   if (slot === -1 || state.coins < cost) return state; // no room / can't afford
   const slots = state.slots.slice();
   slots[slot] = 0;
-  return { ...state, coins: state.coins - cost, slots, buys: state.buys + 1 };
+  return bumpBest({ ...state, coins: state.coins - cost, slots, buys: state.buys + 1 });
 }
 
 // Merge stall at slot `a` into slot `b` if they're the same, non-max tier.
@@ -66,7 +80,7 @@ export function mergeStalls(state, a, b) {
   const slots = state.slots.slice();
   slots[b] = ta + 1;
   slots[a] = null;
-  return { ...state, slots };
+  return bumpBest({ ...state, slots });
 }
 
 // Apply elapsed real time: add idle earnings (capped) and return NEW state plus

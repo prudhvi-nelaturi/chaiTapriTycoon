@@ -26,8 +26,12 @@ import {
   applyElapsed,
   tick,
   dayKey,
+  bumpBest,
 } from './game/engine';
 import { loadGame, saveGame, resetGame } from './game/storage';
+import Journey from './components/Journey';
+import FloatingText from './components/FloatingText';
+import UnlockBanner from './components/UnlockBanner';
 
 // Compact number formatting: 1.2K, 3.4M, etc.
 function fmt(n) {
@@ -40,21 +44,24 @@ function fmt(n) {
 }
 
 export default function App() {
-  const [state, setState] = useState(null);      // null until loaded
-  const [selected, setSelected] = useState(-1);   // selected slot index for merging
+  const [state, setState] = useState(null);       // null until loaded
+  const [selected, setSelected] = useState(-1);    // selected slot index for merging
   const [awayEarned, setAwayEarned] = useState(0); // "while you were away" amount
-  const [, setBoostNow] = useState(0);            // re-render trigger for boost timer
+  const [, setBoostNow] = useState(0);             // re-render trigger for boost timer
+  const [floaters, setFloaters] = useState([]);    // active "+coins" pops
+  const [unlockTier, setUnlockTier] = useState(null); // tier index to celebrate
   const stateRef = useRef(null);
+  const floatId = useRef(0);
 
   // Keep a ref in sync so interval callbacks read the latest state.
   useEffect(() => { stateRef.current = state; }, [state]);
 
-  // Initial load + offline earnings.
+  // Initial load + offline earnings. bumpBest backfills bestTier for old saves.
   useEffect(() => {
     (async () => {
       const loaded = await loadGame();
       const [withIdle, earned] = applyElapsed(loaded);
-      setState(withIdle);
+      setState(bumpBest(withIdle));
       if (earned > 0) setAwayEarned(earned);
     })();
   }, []);
@@ -71,6 +78,12 @@ export default function App() {
     }, 1000);
     return () => clearInterval(id);
   }, []);
+
+  const spawnFloat = (text) => {
+    const id = ++floatId.current;
+    setFloaters((f) => [...f, { id, text }]);
+  };
+  const removeFloat = (id) => setFloaters((f) => f.filter((x) => x.id !== id));
 
   if (!state) {
     return (
@@ -93,16 +106,20 @@ export default function App() {
     if (tier === null) { setSelected(-1); return; }
     if (selected === -1) { setSelected(i); return; }
     if (selected === i) { setSelected(-1); return; }
+    const prevBest = state.bestTier ?? -1;
     const merged = mergeStalls(state, selected, i);
     setState(merged);
     saveGame(merged);
     setSelected(-1);
+    // Celebrate only when a brand-new tier is reached for the first time.
+    if ((merged.bestTier ?? -1) > prevBest) setUnlockTier(merged.bestTier);
   };
 
   const onServe = () => {
     const reward = Math.max(1, income * TAP_REWARD_MULTIPLIER);
-    const next = { ...state, coins: state.coins + reward };
+    const next = { ...state, coins: state.coins + reward, served: (state.served ?? 0) + 1 };
     setState(next);
+    spawnFloat(`+${fmt(reward)}`);
   };
 
   const onBuy = () => {
@@ -123,6 +140,7 @@ export default function App() {
     const next = { ...state, coins: state.coins + reward, lastStreakDay: dayKey() };
     setState(next);
     saveGame(next);
+    spawnFloat(`+${fmt(reward)} 🎁`);
   };
 
   const onReset = async () => {
@@ -140,15 +158,18 @@ export default function App() {
         <Text style={styles.title}>Chai Tapri Tycoon</Text>
         <Text style={styles.coins}>🪙 {fmt(state.coins)}</Text>
         <Text style={styles.income}>
-          {fmt(income)}/sec {boostActive ? `· ⚡2× (${boostLeft}s)` : ''}
+          {fmt(income)}/sec{boostActive ? `  ·  ⚡2× (${boostLeft}s)` : ''}
         </Text>
       </View>
+
+      {/* Journey / progress */}
+      <Journey bestTier={state.bestTier ?? -1} />
 
       {/* Hint */}
       <Text style={styles.hint}>
         {selected === -1
-          ? 'Tap a stall, then tap a matching one to merge ☕→🫖'
-          : 'Now tap another stall of the same kind to merge'}
+          ? 'Tap a stall, then a matching one to merge ☕→🫖'
+          : 'Now tap another stall of the same kind'}
       </Text>
 
       {/* Grid */}
@@ -170,7 +191,7 @@ export default function App() {
               {t ? (
                 <>
                   <Text style={styles.slotEmoji}>{t.emoji}</Text>
-                  <Text style={styles.slotName}>{t.name}</Text>
+                  <Text style={styles.slotName} numberOfLines={1}>{t.name}</Text>
                   <Text style={styles.slotIncome}>{fmt(t.income)}/s</Text>
                 </>
               ) : (
@@ -218,6 +239,18 @@ export default function App() {
         <Text style={styles.resetText}>reset</Text>
       </TouchableOpacity>
 
+      {/* Floating "+coins" layer (taps on Serve) */}
+      <View style={styles.floatLayer} pointerEvents="none">
+        {floaters.map((f) => (
+          <FloatingText key={f.id} text={f.text} onDone={() => removeFloat(f.id)} />
+        ))}
+      </View>
+
+      {/* New-tier unlock celebration */}
+      {unlockTier !== null && (
+        <UnlockBanner tier={unlockTier} onDone={() => setUnlockTier(null)} />
+      )}
+
       {/* While-you-were-away popup */}
       <Modal transparent visible={awayEarned > 0} animationType="fade">
         <Pressable style={styles.modalBg} onPress={() => setAwayEarned(0)}>
@@ -255,20 +288,20 @@ const styles = StyleSheet.create({
   loading: { flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },
   loadingText: { color: C.text, fontSize: 28 },
 
-  header: { alignItems: 'center', paddingTop: 12, paddingBottom: 6 },
-  title: { color: C.accent, fontSize: 18, fontWeight: '700', letterSpacing: 0.5 },
-  coins: { color: C.text, fontSize: 40, fontWeight: '800', marginTop: 4 },
-  income: { color: C.sub, fontSize: 15, marginTop: 2 },
+  header: { alignItems: 'center', paddingTop: 8, paddingBottom: 2 },
+  title: { color: C.accent, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  coins: { color: C.text, fontSize: 34, fontWeight: '800', marginTop: 2 },
+  income: { color: C.sub, fontSize: 14, marginTop: 1 },
 
-  hint: { color: C.sub, fontSize: 12, textAlign: 'center', marginVertical: 8 },
+  hint: { color: C.sub, fontSize: 12, textAlign: 'center', marginVertical: 6 },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   slot: {
     width: `${100 / GRID_COLS - 3}%`,
-    aspectRatio: 0.92,
+    aspectRatio: 1.08,
     backgroundColor: C.card,
     borderRadius: 14,
-    marginBottom: 10,
+    marginBottom: 8,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -276,12 +309,12 @@ const styles = StyleSheet.create({
   },
   slotFilled: { backgroundColor: C.cardFilled },
   slotSelected: { borderColor: C.accent },
-  slotEmoji: { fontSize: 34 },
-  slotName: { color: C.text, fontSize: 11, marginTop: 4, textAlign: 'center', paddingHorizontal: 2 },
-  slotIncome: { color: C.accent, fontSize: 10, marginTop: 2 },
-  slotEmpty: { color: C.accent2, fontSize: 30 },
+  slotEmoji: { fontSize: 30 },
+  slotName: { color: C.text, fontSize: 10, marginTop: 3, textAlign: 'center', paddingHorizontal: 2 },
+  slotIncome: { color: C.accent, fontSize: 9, marginTop: 1 },
+  slotEmpty: { color: C.accent2, fontSize: 28 },
 
-  actions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  actions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
   btn: {
     flex: 1,
     backgroundColor: C.accent2,
@@ -297,7 +330,7 @@ const styles = StyleSheet.create({
   btnSub: { color: C.text, fontSize: 12, marginTop: 2, opacity: 0.85 },
 
   streak: {
-    marginTop: 12,
+    marginTop: 10,
     backgroundColor: C.accent,
     borderRadius: 14,
     paddingVertical: 12,
@@ -305,8 +338,10 @@ const styles = StyleSheet.create({
   },
   streakText: { color: '#1c1410', fontSize: 15, fontWeight: '800' },
 
-  reset: { alignSelf: 'center', marginTop: 'auto', marginBottom: 8, padding: 8 },
+  reset: { alignSelf: 'center', marginTop: 'auto', marginBottom: 6, padding: 8 },
   resetText: { color: C.sub, fontSize: 11, opacity: 0.5 },
+
+  floatLayer: { ...StyleSheet.absoluteFillObject },
 
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center' },
   modal: { backgroundColor: C.card, borderRadius: 20, padding: 28, alignItems: 'center', width: '78%' },
