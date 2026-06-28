@@ -33,14 +33,16 @@ import Journey from './components/Journey';
 import FloatingText from './components/FloatingText';
 import UnlockBanner from './components/UnlockBanner';
 
-// Compact number formatting: 1.2K, 3.4M, etc.
+// Compact number formatting. Always keep ONE decimal at K and above (11.2K,
+// 35.5K, 1.4M) so the counter visibly ticks up every second instead of sitting
+// frozen between whole thousands — that constant motion is a retention hook.
 function fmt(n) {
   n = Math.floor(n);
   if (n < 1000) return `${n}`;
   const units = ['', 'K', 'M', 'B', 'T'];
   const i = Math.min(units.length - 1, Math.floor(Math.log10(n) / 3));
   const v = n / Math.pow(1000, i);
-  return `${v.toFixed(v < 10 ? 1 : 0)}${units[i]}`;
+  return `${v.toFixed(1)}${units[i]}`;
 }
 
 // Wrap in SafeAreaProvider so the game can read real device insets
