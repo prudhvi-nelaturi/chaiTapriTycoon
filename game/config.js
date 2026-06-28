@@ -26,9 +26,14 @@ export const SLOT_COUNT = GRID_COLS * GRID_ROWS;
 export const BASE_BUY_COST = 50;
 export const BUY_COST_GROWTH = 1.15; // each purchase multiplies cost by this
 
-// Tapping the stand to "serve a customer" gives an instant coin pop.
-// Keeps the player physically engaged between idle ticks.
-export const TAP_REWARD_MULTIPLIER = 2; // tap = 2 seconds of total income, instantly
+// --- Customer orders (the active "selling to people" loop) ---
+// A customer asks for a specific stall tier; serving pays a reward and the next
+// customer walks up after a short delay. This is the main active engagement.
+export const ORDER_REWARD_SECONDS = 90;  // reward ≈ this many seconds of the requested stall's income
+export const ORDER_BASE_REWARD = 60;     // floor so the earliest orders still feel worth it
+export const ORDER_ARRIVAL_MS = 3500;    // delay before the next customer arrives (paces the loop)
+export const ORDER_TIER_SPREAD = 2;      // request among your top (best-tier .. best-tier-2) stalls
+export const ORDER_AVATARS = ['🧑', '👵', '👨', '🧒', '👩', '🧓', '🧕', '👲'];
 
 // Rewarded-ad boost (stubbed): doubles income for this many seconds.
 export const BOOST_DURATION_SECONDS = 30;

@@ -6,6 +6,11 @@ import {
   BASE_BUY_COST,
   BUY_COST_GROWTH,
   OFFLINE_CAP_SECONDS,
+  ORDER_REWARD_SECONDS,
+  ORDER_BASE_REWARD,
+  ORDER_ARRIVAL_MS,
+  ORDER_TIER_SPREAD,
+  ORDER_AVATARS,
 } from './config';
 
 // A fresh game: empty grid, a few coins to make the first buy, no purchases yet.
@@ -19,7 +24,65 @@ export function newGame() {
     boostUntil: 0,                        // timestamp; while now < this, income is boosted
     bestTier: -1,                         // highest tier ever reached (for journey/unlocks)
     served: 0,                            // lifetime "serve" taps, for a sense of activity
+    order: null,                          // current customer order { tier, reward, avatar }
+    orderReadyAt: 0,                      // timestamp the next customer may arrive
+    ordersFilled: 0,                      // lifetime orders served
   };
+}
+
+// --- Customer orders ---------------------------------------------------------
+
+// Roll a new order for a random unlocked tier, biased to the player's top tiers.
+// Returns null if the player has no stalls yet.
+export function rollOrder(state) {
+  const best = state.bestTier ?? -1;
+  if (best < 0) return null;
+  const lo = Math.max(0, best - ORDER_TIER_SPREAD);
+  const tier = lo + Math.floor(Math.random() * (best - lo + 1));
+  const reward = Math.max(
+    ORDER_BASE_REWARD,
+    Math.floor(TIERS[tier].income * ORDER_REWARD_SECONDS)
+  );
+  const avatar = ORDER_AVATARS[Math.floor(Math.random() * ORDER_AVATARS.length)];
+  return { tier, reward, avatar };
+}
+
+// True if the board currently has a stall of the order's exact tier.
+export function canServeOrder(state) {
+  if (!state.order) return false;
+  return state.slots.includes(state.order.tier);
+}
+
+// Bring on the next customer if one is due and none is waiting. Returns NEW state.
+export function maybeSpawnOrder(state, now = Date.now()) {
+  if (state.order) return state;
+  if ((state.bestTier ?? -1) < 0) return state;
+  if (now < (state.orderReadyAt ?? 0)) return state;
+  const order = rollOrder(state);
+  return order ? { ...state, order } : state;
+}
+
+// Serve the current customer (non-destructive — the stall stays). Returns
+// [newState, rewardGranted]; rewardGranted is 0 if it couldn't be served.
+export function serveOrder(state, now = Date.now()) {
+  if (!canServeOrder(state)) return [state, 0];
+  const reward = state.order.reward;
+  return [
+    {
+      ...state,
+      coins: state.coins + reward,
+      order: null,
+      orderReadyAt: now + ORDER_ARRIVAL_MS,
+      ordersFilled: (state.ordersFilled ?? 0) + 1,
+    },
+    reward,
+  ];
+}
+
+// Dismiss the current customer with no reward; the next arrives after the delay.
+export function skipOrder(state, now = Date.now()) {
+  if (!state.order) return state;
+  return { ...state, order: null, orderReadyAt: now + ORDER_ARRIVAL_MS };
 }
 
 // Highest tier currently sitting on the board (-1 if board is empty).

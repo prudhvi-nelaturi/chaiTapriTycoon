@@ -12,7 +12,6 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import {
   TIERS,
   GRID_COLS,
-  TAP_REWARD_MULTIPLIER,
   BOOST_DURATION_SECONDS,
   STREAK_REWARD_SECONDS,
 } from './game/config';
@@ -27,11 +26,16 @@ import {
   tick,
   dayKey,
   bumpBest,
+  maybeSpawnOrder,
+  canServeOrder,
+  serveOrder,
+  skipOrder,
 } from './game/engine';
 import { loadGame, saveGame, resetGame } from './game/storage';
 import Journey from './components/Journey';
 import FloatingText from './components/FloatingText';
 import UnlockBanner from './components/UnlockBanner';
+import CustomerCard from './components/CustomerCard';
 
 // Insert thousands separators manually (Hermes doesn't reliably do toLocaleString).
 function group(n) {
@@ -81,7 +85,7 @@ function Game() {
     (async () => {
       const loaded = await loadGame();
       const [withIdle, earned] = applyElapsed(loaded);
-      setState(bumpBest(withIdle));
+      setState(maybeSpawnOrder(bumpBest(withIdle))); // greet returning players with a customer
       if (earned > 0) setAwayEarned(earned);
     })();
   }, []);
@@ -91,7 +95,7 @@ function Game() {
     const id = setInterval(() => {
       const s = stateRef.current;
       if (!s) return;
-      const next = tick(s, 1);
+      const next = maybeSpawnOrder(tick(s, 1)); // accrue income + bring the next customer when due
       setState(next);
       saveGame(next);
       setBoostNow(Date.now()); // refresh boost countdown display
@@ -123,6 +127,7 @@ function Game() {
   const boostActive = Date.now() < state.boostUntil;
   const boostLeft = Math.max(0, Math.ceil((state.boostUntil - Date.now()) / 1000));
   const streakAvailable = state.lastStreakDay !== dayKey();
+  const canServe = canServeOrder(state);
 
   // --- Actions ---
   const onSlotPress = (i) => {
@@ -139,11 +144,18 @@ function Game() {
     if ((merged.bestTier ?? -1) > prevBest) setUnlockTier(merged.bestTier);
   };
 
-  const onServe = () => {
-    const reward = Math.max(1, income * TAP_REWARD_MULTIPLIER);
-    const next = { ...state, coins: state.coins + reward, served: (state.served ?? 0) + 1 };
+  const onServeOrder = () => {
+    const [next, reward] = serveOrder(state);
+    if (reward <= 0) return;
     setState(next);
-    spawnFloat(`+${fmt(reward)}`);
+    saveGame(next);
+    spawnFloat(`+${fmt(reward)} 💰`);
+  };
+
+  const onSkipOrder = () => {
+    const next = skipOrder(state);
+    setState(next);
+    saveGame(next);
   };
 
   const onBuy = () => {
@@ -198,7 +210,7 @@ function Game() {
       {/* Hint */}
       <Text style={styles.hint}>
         {selected === -1
-          ? 'Tap a stall, then a matching one to merge ☕→🫖'
+          ? 'Merge matching stalls · serve customers for big rewards'
           : 'Now tap another stall of the same kind'}
       </Text>
 
@@ -232,8 +244,17 @@ function Game() {
         })}
       </View>
 
-      {/* Spacer pushes the action bar to the bottom, above the safe inset. */}
-      <View style={styles.spacer} />
+      {/* Customer order — the active "selling to people" loop, centered in the
+          space between the board and the action bar. */}
+      <View style={styles.midArea}>
+        <CustomerCard
+          order={state.order}
+          canServe={canServe}
+          onServe={onServeOrder}
+          onSkip={onSkipOrder}
+          fmt={fmt}
+        />
+      </View>
 
       {/* Daily streak (sits just above the primary actions) */}
       {streakAvailable && (
@@ -251,11 +272,6 @@ function Game() {
         >
           <Text style={styles.btnText}>Buy Stall</Text>
           <Text style={styles.btnSub}>🪙 {fmt(buyCost)}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.btn, styles.btnServe]} onPress={onServe}>
-          <Text style={styles.btnText}>Serve ☕</Text>
-          <Text style={styles.btnSub}>+{fmt(Math.max(1, income * TAP_REWARD_MULTIPLIER))}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -345,7 +361,7 @@ const styles = StyleSheet.create({
   slotIncome: { color: C.accent, fontSize: 9, marginTop: 1 },
   slotEmpty: { color: C.accent2, fontSize: 28 },
 
-  spacer: { flex: 1, minHeight: 8 },
+  midArea: { flex: 1, minHeight: 8, justifyContent: 'center' },
 
   actions: { flexDirection: 'row', justifyContent: 'space-between' },
   btn: {
@@ -356,7 +372,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 4,
   },
-  btnServe: { backgroundColor: C.green },
   btnBoost: { backgroundColor: C.purple },
   btnDisabled: { opacity: 0.4 },
   btnText: { color: C.text, fontSize: 15, fontWeight: '700' },
