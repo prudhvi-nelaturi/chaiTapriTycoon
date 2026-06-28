@@ -23,7 +23,7 @@ export default function CustomerCard({ order, canServe, onServe, onSkip, fmt }) 
           wants  {t.emoji} {t.name}
         </Text>
         <Text style={styles.reward}>+{fmt(order.reward)} 💰</Text>
-        {!canServe && <Text style={styles.need}>build a {t.name} to serve</Text>}
+        {!canServe && <Text style={styles.need}>reach {t.name} (or bigger) to serve</Text>}
       </View>
 
       {canServe ? (

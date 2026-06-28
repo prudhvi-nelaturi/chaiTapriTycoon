@@ -47,10 +47,12 @@ export function rollOrder(state) {
   return { tier, reward, avatar };
 }
 
-// True if the board currently has a stall of the order's exact tier.
+// True if the board has a stall that can fill the order — the requested tier OR
+// any higher one (a fancy Restaurant can happily serve a Family Cafe order). This
+// keeps serving intuitive and makes "Skip" rare instead of constant.
 export function canServeOrder(state) {
   if (!state.order) return false;
-  return state.slots.includes(state.order.tier);
+  return state.slots.some((t) => t !== null && t >= state.order.tier);
 }
 
 // Bring on the next customer if one is due and none is waiting. Returns NEW state.
