@@ -244,9 +244,13 @@ function Game() {
         })}
       </View>
 
-      {/* Customer order — the active "selling to people" loop, centered in the
-          space between the board and the action bar. */}
-      <View style={styles.midArea}>
+      {/* Flexible gap: absorbs all spare height so the cluster below stays pinned
+          to the bottom (and the customer card never overlaps the action bar). */}
+      <View style={styles.spacer} />
+
+      {/* Customer order — the active "selling to people" loop, pinned just above
+          the action bar. */}
+      <View style={styles.customerWrap}>
         <CustomerCard
           order={state.order}
           canServe={canServe}
@@ -361,7 +365,8 @@ const styles = StyleSheet.create({
   slotIncome: { color: C.accent, fontSize: 9, marginTop: 1 },
   slotEmpty: { color: C.accent2, fontSize: 28 },
 
-  midArea: { flex: 1, minHeight: 8, justifyContent: 'center' },
+  spacer: { flex: 1, minHeight: 8 },
+  customerWrap: { marginBottom: 10 },
 
   actions: { flexDirection: 'row', justifyContent: 'space-between' },
   btn: {
