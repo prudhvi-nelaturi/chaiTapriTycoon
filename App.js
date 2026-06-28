@@ -38,13 +38,15 @@ function group(n) {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
-// Number formatting. No "K": show the FULL comma-separated number all the way to
-// a million (56,380 → 56,760, every digit visibly ticking = the growth dopamine),
-// and only switch to M/B/T past a million, where full digits stop fitting.
+// Number formatting. No "K": show the FULL comma-separated number for as long as
+// possible — all the way to 100 million (56,380 → 12,345,678, every digit visibly
+// ticking = the growth dopamine) — and only switch to M/B/T past 100M, where the
+// digits genuinely stop fitting on screen.
+const FULL_LIMIT = 100000000; // 100M
 const SCALE = ['', '', 'M', 'B', 'T', 'Qa', 'Qi'];
 function fmt(n) {
   n = Math.floor(n);
-  if (n < 1000000) return group(n);
+  if (n < FULL_LIMIT) return group(n);
   const i = Math.min(SCALE.length - 1, Math.floor(Math.log10(n) / 3));
   const v = n / Math.pow(1000, i);
   return `${v.toFixed(1)}${SCALE[i]}`;
@@ -179,7 +181,9 @@ function Game() {
           the bottom gesture zone (it wipes the save, so keep it out of reach). */}
       <View style={styles.header}>
         <Text style={styles.title}>Chai Tapri Tycoon</Text>
-        <Text style={styles.coins}>🪙 {fmt(state.coins)}</Text>
+        <Text style={styles.coins} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
+          🪙 {fmt(state.coins)}
+        </Text>
         <Text style={styles.income}>
           {fmt(income)}/sec{boostActive ? `  ·  ⚡2× (${boostLeft}s)` : ''}
         </Text>
@@ -315,7 +319,7 @@ const styles = StyleSheet.create({
 
   header: { alignItems: 'center', paddingTop: 4, paddingBottom: 2 },
   title: { color: C.accent, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
-  coins: { color: C.text, fontSize: 34, fontWeight: '800', marginTop: 2 },
+  coins: { color: C.text, fontSize: 34, fontWeight: '800', marginTop: 2, width: '100%', textAlign: 'center' },
   income: { color: C.sub, fontSize: 14, marginTop: 1 },
   reset: { position: 'absolute', top: 0, right: 0, padding: 8 },
   resetText: { color: C.sub, fontSize: 11, opacity: 0.45 },
