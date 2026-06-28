@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  SafeAreaView,
   View,
   Text,
   TouchableOpacity,
@@ -9,6 +8,7 @@ import {
   Pressable,
   StatusBar,
 } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   TIERS,
   GRID_COLS,
@@ -43,7 +43,18 @@ function fmt(n) {
   return `${v.toFixed(v < 10 ? 1 : 0)}${units[i]}`;
 }
 
+// Wrap in SafeAreaProvider so the game can read real device insets
+// (iPhone home indicator, Android nav bar / gesture area).
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <Game />
+    </SafeAreaProvider>
+  );
+}
+
+function Game() {
+  const insets = useSafeAreaInsets();
   const [state, setState] = useState(null);       // null until loaded
   const [selected, setSelected] = useState(-1);    // selected slot index for merging
   const [awayEarned, setAwayEarned] = useState(0); // "while you were away" amount
@@ -85,11 +96,15 @@ export default function App() {
   };
   const removeFloat = (id) => setFloaters((f) => f.filter((x) => x.id !== id));
 
+  // Top/bottom padding from real device insets, with comfortable extra room so
+  // the buttons never sit in the home-indicator / nav-bar gesture zone.
+  const pad = { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 18 };
+
   if (!state) {
     return (
-      <SafeAreaView style={styles.loading}>
+      <View style={[styles.loading, pad]}>
         <Text style={styles.loadingText}>☕ Brewing…</Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -150,16 +165,20 @@ export default function App() {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={[styles.screen, pad]}>
       <StatusBar barStyle="light-content" />
 
-      {/* Header: coins + income */}
+      {/* Header: coins + income. reset tucked into the top corner, away from
+          the bottom gesture zone (it wipes the save, so keep it out of reach). */}
       <View style={styles.header}>
         <Text style={styles.title}>Chai Tapri Tycoon</Text>
         <Text style={styles.coins}>🪙 {fmt(state.coins)}</Text>
         <Text style={styles.income}>
           {fmt(income)}/sec{boostActive ? `  ·  ⚡2× (${boostLeft}s)` : ''}
         </Text>
+        <TouchableOpacity style={styles.reset} onPress={onReset} hitSlop={8}>
+          <Text style={styles.resetText}>reset</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Journey / progress */}
@@ -202,6 +221,16 @@ export default function App() {
         })}
       </View>
 
+      {/* Spacer pushes the action bar to the bottom, above the safe inset. */}
+      <View style={styles.spacer} />
+
+      {/* Daily streak (sits just above the primary actions) */}
+      {streakAvailable && (
+        <TouchableOpacity style={styles.streak} onPress={onClaimStreak}>
+          <Text style={styles.streakText}>🎁 Claim daily reward</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Primary actions */}
       <View style={styles.actions}>
         <TouchableOpacity
@@ -227,17 +256,6 @@ export default function App() {
           <Text style={styles.btnSub}>Watch ad</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Daily streak */}
-      {streakAvailable && (
-        <TouchableOpacity style={styles.streak} onPress={onClaimStreak}>
-          <Text style={styles.streakText}>🎁 Claim daily reward</Text>
-        </TouchableOpacity>
-      )}
-
-      <TouchableOpacity style={styles.reset} onPress={onReset}>
-        <Text style={styles.resetText}>reset</Text>
-      </TouchableOpacity>
 
       {/* Floating "+coins" layer (taps on Serve) */}
       <View style={styles.floatLayer} pointerEvents="none">
@@ -267,7 +285,7 @@ export default function App() {
           </View>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -288,10 +306,12 @@ const styles = StyleSheet.create({
   loading: { flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },
   loadingText: { color: C.text, fontSize: 28 },
 
-  header: { alignItems: 'center', paddingTop: 8, paddingBottom: 2 },
+  header: { alignItems: 'center', paddingTop: 4, paddingBottom: 2 },
   title: { color: C.accent, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
   coins: { color: C.text, fontSize: 34, fontWeight: '800', marginTop: 2 },
   income: { color: C.sub, fontSize: 14, marginTop: 1 },
+  reset: { position: 'absolute', top: 0, right: 0, padding: 8 },
+  resetText: { color: C.sub, fontSize: 11, opacity: 0.45 },
 
   hint: { color: C.sub, fontSize: 12, textAlign: 'center', marginVertical: 6 },
 
@@ -314,12 +334,14 @@ const styles = StyleSheet.create({
   slotIncome: { color: C.accent, fontSize: 9, marginTop: 1 },
   slotEmpty: { color: C.accent2, fontSize: 28 },
 
-  actions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
+  spacer: { flex: 1, minHeight: 8 },
+
+  actions: { flexDirection: 'row', justifyContent: 'space-between' },
   btn: {
     flex: 1,
     backgroundColor: C.accent2,
     borderRadius: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     marginHorizontal: 4,
   },
@@ -330,16 +352,13 @@ const styles = StyleSheet.create({
   btnSub: { color: C.text, fontSize: 12, marginTop: 2, opacity: 0.85 },
 
   streak: {
-    marginTop: 10,
+    marginBottom: 10,
     backgroundColor: C.accent,
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
   },
   streakText: { color: '#1c1410', fontSize: 15, fontWeight: '800' },
-
-  reset: { alignSelf: 'center', marginTop: 'auto', marginBottom: 6, padding: 8 },
-  resetText: { color: C.sub, fontSize: 11, opacity: 0.5 },
 
   floatLayer: { ...StyleSheet.absoluteFillObject },
 
