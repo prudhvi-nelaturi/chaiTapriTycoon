@@ -109,9 +109,13 @@ function Game() {
   };
   const removeFloat = (id) => setFloaters((f) => f.filter((x) => x.id !== id));
 
-  // Top/bottom padding from real device insets, with comfortable extra room so
-  // the buttons never sit in the home-indicator / nav-bar gesture zone.
-  const pad = { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 18 };
+  // Top/bottom padding from device insets. Bottom uses a guaranteed minimum (some
+  // devices under-report insets.bottom in Expo Go) plus extra room, so the action
+  // bar always clears the iPhone home indicator / Android nav buttons.
+  const pad = {
+    paddingTop: insets.top + 6,
+    paddingBottom: Math.max(insets.bottom, 24) + 22,
+  };
 
   if (!state) {
     return (
@@ -349,10 +353,10 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   slot: {
     width: `${100 / GRID_COLS - 3}%`,
-    aspectRatio: 1.08,
+    aspectRatio: 1.25,
     backgroundColor: C.card,
     borderRadius: 14,
-    marginBottom: 8,
+    marginBottom: 6,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
