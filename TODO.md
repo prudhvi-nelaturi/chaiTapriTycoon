@@ -25,6 +25,30 @@ roughly in priority order.
       the free gift is ready / offline earnings are full. The notification is what
       actually drags players back. Start with local (no server needed).
 
+## 🌐 Community & social (the bigger swing — learn it here first)
+
+The goal is a *community-driven* game in general (Coin Master / Ludo King style —
+NOT PUBG/real-time, which is studio-scale). Use this game as the cheap testbed to
+learn the social playbook before betting big on a dedicated community title.
+
+Rule of thumb: **async social = solo-buildable; real-time = not.** All of the
+below are async and run on a free managed backend (Firebase or Supabase free tier).
+This is the point where the app stops being $0 on-device and needs a backend.
+
+- [ ] **Global + friends leaderboard.** Cheapest possible social hook. Firebase/Supabase.
+- [ ] **Weekly tournament.** Reset every 7 days, top players get a reward — a recurring
+      reason to come back and compete (the appointment loop, but social).
+- [ ] **Friend invites / referral.** Share a link via WhatsApp → both get a bonus.
+      Turns players into your free user-acquisition (the anti-paid-UA move).
+- [ ] **Gifting** between friends (send/receive coins or boosts) — the Coin Master hook.
+- [ ] **Clans / teams** with a shared goal (later, only if the simpler social lifts retention).
+- [ ] Decide backend: **Firebase** (fastest to wire, generous free tier) vs **Supabase**
+      (Postgres, more control). Pick one; don't hand-roll servers.
+
+**Sequencing:** prove single-player retention first (D7 > ~10%). Social bolted onto
+a game nobody returns to is wasted effort. Then add leaderboard → tournament →
+invites in that order and measure whether each lifts retention.
+
 ## 🟡 Game design & balance
 
 - [ ] **Smooth the late climb.** Family Cafe → Restaurant → Cloud Kitchen is where
