@@ -1,17 +1,31 @@
 {
   "expo": {
-    "name": "ChaiTapriTycoon",
+    "name": "Chai Tapri Tycoon",
     "slug": "ChaiTapriTycoon",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#1c1410",
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#1c1410"
+        }
+      ]
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.prudhvinelaturi.chaitapritycoon"
     },
     "android": {
+      "package": "com.prudhvinelaturi.chaitapritycoon",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#1c1410",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -19,6 +33,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "69e1305f-51bc-471f-bed1-8f03f5d49578"
+      }
+    },
+    "owner": "prudhvi29"
   }
 }

@@ -288,7 +288,7 @@ function Game() {
           disabled={boostActive}
         >
           <Text style={styles.btnText}>⚡ 2× Boost</Text>
-          <Text style={styles.btnSub}>Watch ad</Text>
+          <Text style={styles.btnSub}>Free</Text>
         </TouchableOpacity>
       </View>
 
