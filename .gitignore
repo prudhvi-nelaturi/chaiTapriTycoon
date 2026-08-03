@@ -45,3 +45,4 @@ yarn-error.*
 
 # Claude Code local (personal) settings — never commit bypass mode
 .claude/settings.local.json
+/build
